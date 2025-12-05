@@ -4,11 +4,17 @@ set -e
 # ============================================================================
 # GCP Service Account Setup Script
 # ============================================================================
-# This script creates a service account for Cloud Run deployment and assigns
-# necessary IAM roles.
+# This script creates a PROJECT-LEVEL service account for Cloud Run deployment
+# and assigns necessary IAM roles.
+#
+# For ORGANIZATION-LEVEL service accounts, contact your GCP admin.
+# See DEPLOYMENT.md "Service Account Options" section for details.
 # ============================================================================
 
 echo "🔧 Setting up GCP Service Account for Cloud Run Deployment"
+echo ""
+echo "ℹ️  This script creates a PROJECT-LEVEL service account."
+echo "ℹ️  For organization-level service accounts, see DEPLOYMENT.md"
 echo ""
 
 # Check if gcloud is installed

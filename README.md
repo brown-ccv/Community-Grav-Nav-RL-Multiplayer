@@ -16,8 +16,12 @@ For deploying this application to Google Cloud Run with automated CI/CD, see the
 
 ### Quick Start for Deployment:
 1. Complete one-time setup (GCP project, service account, GitHub secrets)
+   - **Note:** Supports both project-level and organization-level service accounts
+   - See [Service Account Options](.deployment/DEPLOYMENT.md#-service-account-options) for details
 2. Trigger deployment via GitHub Actions
 3. Access your game at the provided Cloud Run URL
+
+**For Brown CCV Users:** Organization-level service accounts are supported! See the [deployment guide](.deployment/DEPLOYMENT.md#-service-account-options) for configuration details.
 
 ---
 

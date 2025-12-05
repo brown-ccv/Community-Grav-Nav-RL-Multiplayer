@@ -8,12 +8,13 @@ This guide provides complete instructions for deploying the Grav Nav RL Multipla
 
 1. [Prerequisites](#-prerequisites)
 2. [Architecture Overview](#-architecture-overview)
-3. [Phase 1: 🔍 Prepare - Initial Setup](#phase-1--prepare---initial-setup)
-4. [Phase 2: 🚀 Deploy - Automated Deployment](#phase-2--deploy---automated-deployment)
-5. [Phase 3: 🧹 Teardown - Cleanup (Optional)](#phase-3--teardown---cleanup-optional)
-6. [Troubleshooting](#-troubleshooting)
-7. [Cost Estimation](#-cost-estimation)
-8. [Security Considerations](#-security-considerations)
+3. [Service Account Options](#-service-account-options)
+4. [Phase 1: 🔍 Prepare - Initial Setup](#phase-1--prepare---initial-setup)
+5. [Phase 2: 🚀 Deploy - Automated Deployment](#phase-2--deploy---automated-deployment)
+6. [Phase 3: 🧹 Teardown - Cleanup (Optional)](#phase-3--teardown---cleanup-optional)
+7. [Troubleshooting](#-troubleshooting)
+8. [Cost Estimation](#-cost-estimation)
+9. [Security Considerations](#-security-considerations)
 
 ---
 
@@ -75,6 +76,157 @@ Before starting, ensure you have:
 
 ---
 
+## 🤖 Service Account Options
+
+### Can I Use an Organization-Level Service Account?
+
+**Yes!** You can use an organization-level service account for this deployment. This section explains the differences and how to choose the right option for your use case.
+
+### Project-Level vs Organization-Level Service Accounts
+
+#### Project-Level Service Account (Default)
+**What it is:** A service account created within a specific GCP project.
+
+**When to use:**
+- ✅ Single project deployment
+- ✅ Simple setup and management
+- ✅ Clear isolation between projects
+- ✅ Recommended for most users and small teams
+
+**Example:**
+```
+grav-nav-cloud-run-sa@your-project-id.iam.gserviceaccount.com
+```
+
+**Permissions scope:** Limited to the specific project where it was created.
+
+#### Organization-Level Service Account
+**What it is:** A service account created at the organization level that can be granted permissions across multiple projects.
+
+**When to use:**
+- ✅ Deploying to multiple GCP projects (dev, staging, production)
+- ✅ Centralized identity and access management (IAM)
+- ✅ Organization-wide compliance and security policies
+- ✅ Large teams with dedicated DevOps/Platform teams
+- ✅ Universities or enterprises with GCP organizations (like Brown University)
+
+**Example:**
+```
+deployment-agent@brown-university.iam.gserviceaccount.com
+```
+
+**Permissions scope:** Can be granted permissions across multiple projects within the organization.
+
+### How to Use an Organization-Level Service Account
+
+If you have access to an organization-level service account, follow these steps:
+
+#### Step 1: Obtain the Service Account Email
+
+Ask your GCP organization administrator for:
+1. The service account email (e.g., `deployment-agent@your-org.iam.gserviceaccount.com`)
+2. A JSON key file for the service account
+3. Confirmation that the service account has the required permissions (see below)
+
+#### Step 2: Verify Required Permissions
+
+The organization service account needs these IAM roles **on your specific project**:
+
+```bash
+# Set your project ID
+export GCP_PROJECT_ID="your-project-id"
+export ORG_SA_EMAIL="deployment-agent@your-org.iam.gserviceaccount.com"
+
+# Grant required roles to the organization service account
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+    --member="serviceAccount:$ORG_SA_EMAIL" \
+    --role="roles/run.admin"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+    --member="serviceAccount:$ORG_SA_EMAIL" \
+    --role="roles/iam.serviceAccountUser"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+    --member="serviceAccount:$ORG_SA_EMAIL" \
+    --role="roles/storage.admin"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+    --member="serviceAccount:$ORG_SA_EMAIL" \
+    --role="roles/artifactregistry.writer"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+    --member="serviceAccount:$ORG_SA_EMAIL" \
+    --role="roles/logging.logWriter"
+
+gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+    --member="serviceAccount:$ORG_SA_EMAIL" \
+    --role="roles/cloudtrace.agent"
+```
+
+#### Step 3: Update GitHub Secrets
+
+Use the organization service account key instead of creating a new project-level service account:
+
+```bash
+# Set GitHub secrets with organization service account
+gh secret set GCP_PROJECT_ID --body "$GCP_PROJECT_ID"
+gh secret set GCP_SERVICE_ACCOUNT_KEY < org-service-account-key.json
+```
+
+#### Step 4: Update Workflow (if needed)
+
+The existing GitHub Actions workflow (`.github/workflows/deploy.yml`) already supports organization service accounts! The `--service-account` parameter in the Cloud Run deployment will automatically use the service account from the credentials.
+
+However, if your organization uses a specific service account email for Cloud Run services (runtime service account), update line 169 in `.github/workflows/deploy.yml`:
+
+```yaml
+--service-account=your-org-runtime-sa@your-org.iam.gserviceaccount.com \
+```
+
+### Comparison Table
+
+| Feature | Project-Level SA | Organization-Level SA |
+|---------|-----------------|----------------------|
+| **Setup Complexity** | Simple | Moderate |
+| **Multi-project Support** | ❌ No | ✅ Yes |
+| **Centralized Management** | ❌ No | ✅ Yes |
+| **Permission Isolation** | ✅ High | ⚠️ Requires careful management |
+| **Recommended For** | Individual projects, small teams | Organizations, enterprises, universities |
+| **Brown CCV Use Case** | ✅ Works | ✅ **Recommended for multi-project setups** |
+
+### Best Practices for Organization Service Accounts
+
+1. **Principle of Least Privilege**: Only grant permissions on projects where deployment is needed
+2. **Key Rotation**: Rotate service account keys regularly (every 90 days)
+3. **Audit Logging**: Enable Cloud Audit Logs to track service account usage
+4. **Separate Runtime and Deployment Accounts**: 
+   - Use one service account for GitHub Actions (deployment)
+   - Use a different service account for Cloud Run runtime
+5. **Naming Convention**: Use clear naming like `github-actions-deploy@org.iam.gserviceaccount.com`
+
+### Troubleshooting Organization Service Accounts
+
+**Error: "Permission Denied" when deploying**
+```bash
+# Verify the service account has permissions on your project
+gcloud projects get-iam-policy $GCP_PROJECT_ID \
+    --flatten="bindings[].members" \
+    --filter="bindings.members:serviceAccount:YOUR_ORG_SA_EMAIL"
+```
+
+**Error: "Service account does not exist"**
+```bash
+# Verify the service account exists at organization level
+gcloud iam service-accounts describe YOUR_ORG_SA_EMAIL
+```
+
+**Error: "Insufficient authentication scopes"**
+- Ensure the JSON key file has not expired
+- Verify you're using the correct key file
+- Check that the key hasn't been deleted in GCP Console
+
+---
+
 ## Phase 1: 🔍 PREPARE - Initial Setup
 
 This phase sets up your GCP project and GitHub repository for automated deployments.
@@ -120,8 +272,13 @@ gcloud artifacts repositories create grav-nav-repo \
 
 ### Step 1.4: Create Service Account with Proper Permissions
 
+**Choose one of the following options:**
+
+#### Option A: Project-Level Service Account (Recommended for Most Users)
+
 ```bash
 # Run the automated setup script
+cd .deployment/scripts/gcp
 ./setup-service-account.sh
 
 # This script will:
@@ -137,6 +294,30 @@ gcloud artifacts repositories create grav-nav-repo \
 ```
 
 **⚠️ IMPORTANT**: Keep the `grav-nav-sa-key.json` file secure! This is your authentication credential.
+
+#### Option B: Organization-Level Service Account (For Brown CCV or Multi-Project Deployments)
+
+If you're part of an organization with centralized service account management:
+
+```bash
+# 1. Contact your GCP organization administrator for:
+#    - Organization service account email
+#    - Service account JSON key file
+#    - Confirmation of permissions
+
+# 2. Verify the organization service account has required permissions on your project
+export GCP_PROJECT_ID="your-project-id"
+export ORG_SA_EMAIL="deployment-agent@your-org.iam.gserviceaccount.com"
+
+# Check current permissions
+gcloud projects get-iam-policy $GCP_PROJECT_ID \
+    --flatten="bindings[].members" \
+    --filter="bindings.members:serviceAccount:$ORG_SA_EMAIL"
+
+# 3. If permissions are missing, request your admin to grant them (see "Service Account Options" section above)
+```
+
+**📝 Note**: For detailed information about using organization service accounts, see the [Service Account Options](#-service-account-options) section above.
 
 ### Step 1.5: Authenticate GitHub CLI
 
