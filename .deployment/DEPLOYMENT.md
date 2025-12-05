@@ -317,7 +317,7 @@ gcloud projects get-iam-policy $GCP_PROJECT_ID \
 # 3. If permissions are missing, request your admin to grant them (see "Service Account Options" section above)
 ```
 
-**📝 Note**: For detailed information about using organization service accounts, see the [Service Account Options](#-service-account-options) section above.
+**📝 Note**: For detailed information about using organization service accounts, see the [Service Account Options](#service-account-options) section above.
 
 ### Step 1.5: Authenticate GitHub CLI
 
