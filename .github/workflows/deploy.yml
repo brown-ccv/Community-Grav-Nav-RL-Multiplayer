@@ -160,7 +160,6 @@ jobs:
             --port=8080
             --set-env-vars=PYTHON_ENV=production
             --service-account=grav-nav-cloud-run-sa@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com
-            --no-cpu-throttling
             --execution-environment=gen2
           
       - name: 🌐 Get service URL
