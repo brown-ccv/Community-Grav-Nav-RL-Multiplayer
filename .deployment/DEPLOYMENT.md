@@ -522,7 +522,7 @@ gsutil iam ch allUsers:objectViewer gs://grav-nav-game-data
 
 ### Update Deployment to Use Cloud Storage
 
-Add to `cloudrun.yaml` or deployment command:
+Add to deployment command:
 ```yaml
 env:
 - name: GCS_BUCKET_NAME
